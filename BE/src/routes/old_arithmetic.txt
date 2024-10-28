@@ -1,0 +1,112 @@
+import express from "express";
+import z from "zod";
+import CalcDB from "../db/calc";
+
+const router = express.Router();
+
+const arithSchema = z.object({
+  lhs: z.number(),
+  rhs: z.number(),
+});
+
+const saveSchema = z.object({
+  id: z.string(),
+  lhs: z.number(),
+  op: z.string(),
+  rhs: z.number(),
+  result: z.number(),
+  memo: z.string(),
+});
+
+const memoSchema = z.object({
+  id: z.string(),
+  memo: z.string()
+});
+
+const calcDBInst = CalcDB.getInst();
+
+router.post("/add", (req, res) => {
+  try {
+    const { lhs, rhs } = arithSchema.parse(req.body);
+    console.log(`ADD, ${lhs}, ${rhs}`);
+    const result = lhs + rhs;
+    res.status(200).json({ result });
+  } catch (e) {
+    res.status(500).json({ error: e });
+  }
+});
+
+router.post("/sub", (req, res) => {
+  try {
+    const { lhs, rhs } = arithSchema.parse(req.body);
+    console.log(`SUB, ${lhs}, ${rhs}`);
+    const result = lhs - rhs;
+    res.status(200).json({ result });
+  } catch (e) {
+    res.status(500).json({ error: e });
+  }
+});
+
+router.post("/mul", (req, res) => {
+  try {
+    const { lhs, rhs } = arithSchema.parse(req.body);
+    console.log(`MUL, ${lhs}, ${rhs}`);
+    const result = lhs * rhs;
+    res.status(200).json({ result });
+  } catch (e) {
+    res.status(500).json({ error: e });
+  }
+});
+
+router.post("/div", (req, res) => {
+  try {
+    const { lhs, rhs } = arithSchema.parse(req.body);
+    console.log(`DIV, ${lhs}, ${rhs}`);
+    if (rhs === 0) throw new Error("Division by zero is not allowed");
+    const result = lhs / rhs;
+    res.status(200).json({ result });
+  } catch (e) {
+    res.status(500).json({ error: e });
+  }
+});
+
+router.post("/save", async (req, res) => {
+  try {
+    console.log(req.body);
+    const { id, lhs, op, rhs, result, memo } = saveSchema.parse(req.body);
+    console.log(`SAVE, ${lhs}, ${rhs}`);
+    const isSaved = await calcDBInst.insertItem({ id, lhs, op, rhs, result, memo });
+
+    if (isSaved) {
+      res.status(200).json({ isOK: true });
+    } else {
+      res.status(500).json({ error: "Failed to save the operation" });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e });
+  }
+});
+
+router.get("/show", async (req, res) => {
+  try {
+    console.log(req.query);
+    const searchString = req.query.search as string || "";
+    const count = 10;
+    console.log(`SEARCH, ${searchString}, ${count}`);
+    const result = await calcDBInst.showItems(count, searchString);
+    res.status(200).json(result);
+  } catch (e) {
+    res.status(500).json({ error: e });
+  }
+});
+
+router.post("/memo", async (req, res) => {
+  try {
+    const { id, memo } = memoSchema.parse(req.body);
+    console.log(`MEMO, ${id}, ${memo}`);
+    const result = await calcDBInst.memoItem(id, memo);
+  } catch (e) {
+    res.status(500).json({ error: e });
+  }
+})
+export default router;

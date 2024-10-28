@@ -1,91 +1,73 @@
-import express from "express";
-import z from "zod";
-import CalcDB from "../db/calc";
+import express from 'express';
+import Calc from '../models/calc'; // Assuming this is your model for saving calculations
 
 const router = express.Router();
-const url = '/arithmetics';
 
-const arithSchema = z.object({
-    lhs: z.number(),
-    rhs: z.number()
-});
+interface CalculationRequest {
+  lhs: number;
+  rhs: number;
+  memo?: string;
+}
 
-const saveSchema = z.object({
-    lhs: z.number(),
-    op: z.number(),
-    rhs: z.number(),
-    result: z.number()
-});
+async function performCalculation(lhs: number, rhs: number, op: string): Promise<number> {
+  switch (op) {
+    case 'add':
+      return lhs + rhs;
+    case 'sub':
+      return lhs - rhs;
+    case 'mul':
+      return lhs * rhs;
+    case 'div':
+      if (rhs === 0) throw new Error('Division by zero');
+      return lhs / rhs;
+    default:
+      throw new Error('Invalid operation');
+  }
+}
 
-const calcDBInst = CalcDB.getInst();
-let result = 0;
+async function saveCalculation(lhs: number, rhs: number, op: string, result: number, memo?: string) {
+  try {
+    const savedCalc = await Calc.create({ lhs, op, rhs, result, memo });
+    return savedCalc;
+  } catch (error) {
+    console.error('Error saving calculation:', error);
+    throw new Error('Failed to save calculation');
+  }
+}
 
-router.post(url+'/add', (req, res) => {
-    try {
-        const { lhs, rhs } = arithSchema.parse(req.body);  
-        result = lhs + rhs;
-        res.json(result);
-    } catch (e) {
-        res.status(500).json({ error: e });
+router.post('/:operation', async (req, res) => {
+  try {
+    const { lhs, rhs, memo } = req.body as CalculationRequest;
+    const operation = req.params.operation;
+
+    if (typeof lhs !== 'number' || typeof rhs !== 'number') {
+      return res.status(400).json({ error: 'Invalid input. lhs and rhs must be numbers.' });
     }
-})
 
-router.post(url+'/add', (req, res) => {
-    try {
-        const { lhs, rhs } = arithSchema.parse(req.body);  
-        result = lhs + rhs;
-        res.json(result);
-    } catch (e) {
-        res.status(500).json({ error: e });
+    if (!['add', 'sub', 'mul', 'div'].includes(operation)) {
+      return res.status(400).json({ error: 'Invalid operation. Must be add, sub, mul, or div.' });
     }
-})
 
-router.post(url+'/sub', (req, res) => {
-    try {
-        const { lhs, rhs } = arithSchema.parse(req.body);  
-        result = lhs - rhs;
-        res.json(result);
-    } catch (e) {
-        res.status(500).json({ error: e });
-    }
-})
+    const result = await performCalculation(lhs, rhs, operation);
+    const savedCalc = await saveCalculation(lhs, rhs, operation, result, memo);
 
-router.post(url+'/mul', (req, res) => {
-    try {
-        const { lhs, rhs } = arithSchema.parse(req.body);  
-        result = lhs * rhs;
-        res.json(result);
-    } catch (e) {
-        res.status(500).json({ error: e });
+    res.json({
+      id: savedCalc.id,
+      lhs,
+      op: operation,
+      rhs,
+      result,
+      memo: savedCalc.memo,
+    });
+  } catch (error) {
+    console.error('Error in calculation route:', error);
+    
+    if (error instanceof Error) {
+      res.status(400).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: 'An unexpected error occurred' });
     }
-})
-
-router.post(url+'/div', (req, res) => {
-    try {
-        const { lhs, rhs } = arithSchema.parse(req.body);  
-        result = lhs / rhs;
-        res.json(result);
-    } catch (e) {
-        res.status(500).json({ error: e });
-    }
-})
-
-router.post(url+'/save', (req, res) => {
-    try {
-        const { lhs, op, rhs, result } = saveSchema.parse(req.body);  
-        /* save to db */
-        res.json({ isOK: true });
-    } catch (e) {
-        res.status(500).json({ error: e });
-    }
-})
-
-router.get(url+'/show', (req, res) => {
-    try {
-        res.json('implement arithmetics/show');
-    } catch (e) {
-        res.status(500).json({ error: e});
-    }
+  }
 });
 
 export default router;

@@ -1,0 +1,72 @@
+import CalcModel from "../models/calc";
+
+interface IItem {
+  id: string;
+  lhs: number;
+  op: string;
+  rhs: number;
+  result: number;
+  memo: string;
+}
+
+export default class CalcDB {
+  private static instance: CalcDB | null = null;
+
+  static getInst(): CalcDB {
+    if (!CalcDB.instance) {
+      CalcDB.instance = new CalcDB();
+    }
+    return CalcDB.instance;
+  }
+
+  private constructor() {
+    console.log("[Calc-DB] DB Init Completed");
+  }
+
+  async showItems(count: number, search: string) {
+    try {
+      if (count === 0) return { success: true, data: [] };
+
+      const findArguments = search
+        ? { $or: [{ memo: { $regex: search } }] }
+        : {};
+
+      const res = await CalcModel.find(findArguments).sort({ createdAt: -1 }).limit(count).exec();
+      return { success: true, data: res };
+    } catch (e) {
+      console.log(`[Calc-DB] Select Error: ${e}`);
+      return { success: false, data: `DB Error - ${e}` };
+    }
+  }
+
+  async insertItem(item: IItem): Promise<boolean> {
+    try {
+      const newItem = new CalcModel(item);
+      await newItem.save();
+      return true;
+    } catch (e) {
+      console.log(`[Calc-DB] Insert Error: ${e}`);
+      return false;
+    }
+  }
+
+  async memoItem(id: string, newMemo: string): Promise<boolean> {
+    try {
+      const filter = { _id: id };
+      const update = { memo: newMemo };
+  
+      const res = await CalcModel.updateOne(filter, update);
+  
+      if (res.modifiedCount > 0) {
+        console.log("[Calc-DB] Memo updated successfully.");
+        return true;
+      } else {
+        console.log("[Calc-DB] No document found with the specified ID.");
+        return false;
+      }
+    } catch (e) {
+      console.log(`[Calc-DB] Update Error: ${e}`);
+      return false;
+    }
+  }
+}

@@ -1,12 +1,14 @@
 import express from "express";
 import cors, { CorsOptions } from "cors";
+import dotenv from "dotenv";
+import { connectToDatabase } from './db/db.config'; // Ensure this path is correct
 
-/* import statusRouter from "./routes/status";
-import feedRouter from "./routes/feed";
-import accountRouter from "./routes/account"; */
+import ArithRouter from "./routes/arithmetic";
+
+dotenv.config();
 
 const app = express();
-const port = 8080;
+const port = process.env.PORT;
 
 app.use(express.json());
 
@@ -24,10 +26,27 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-/* app.use("/status", statusRouter);
-app.use("/feed", feedRouter);
-app.use("/account", accountRouter); */
+app.use("/arithmetic", ArithRouter);
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
+
+/* import sequelize from './db/db.config'; */
+import Calc from './models/calc';
+
+async function initializeDatabase() {
+  try {
+    console.log('trying to connect to db');
+    const sequelize = await connectToDatabase(); // Connect to MySQL through SSH
+    /* await sequelize.authenticate(); */
+    console.log('Database connection has been established successfully.');
+    
+    /* await Calc.sync();
+    console.log('Calc model synchronized with database.'); */
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+  }
+}
+
+initializeDatabase();
